@@ -399,7 +399,7 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "mru::list (with up):  "
+		cout << "mru::list[]:          "
 			<< to_simple_string(time);
 	}
 
