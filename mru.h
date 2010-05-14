@@ -44,7 +44,16 @@
 		сам удалять и перемещать элементы без каких-либо последствий.
 */
 
-//#include <iostream> /* Для отладки */
+#define MRU_DEBUG 0
+
+#if MRU_DEBUG
+#include <sstream>
+#include <iostream>
+#define SS_EXCEPTION(s) throw std::exception(((stringstream*)&(s))->str().c_str())
+#endif
+
+#include <exception>
+
 #include <list>
 #include <boost/unordered_map.hpp>
 
@@ -58,18 +67,22 @@ class list
 {
 private:
     class item;
-	typedef std::list<item> list_t;
-	typedef boost::unordered_map<Key, typename list_t::iterator> map_t;
-	typedef typename map_t::iterator map_iterator;
-
 public:
+	typedef std::list<item> list_t;
 	typedef typename list_t::iterator iterator;
 	typedef typename list_t::const_iterator const_iterator;
+private:
+	typedef boost::unordered_map<Key, typename list_t::iterator> map_t;
+	typedef typename map_t::iterator map_iterator;
+	typedef typename map_t::const_iterator map_const_iterator;
 
 private:
 
 	class item
 	{
+	#if MRU_DEBUG
+	friend class list;
+	#endif
 	private:
 		list &mru_;
 		#if MRU_USE_MAP_ITER
@@ -94,6 +107,18 @@ private:
 		#endif
 
 	public:
+		item(const item &other)
+			: mru_(other.mru_)
+			#if !MRU_USE_MAP_ITER
+			, key_(other.key_)
+			#endif
+			, value_(other.value_)
+			, mapped_(false)
+		{
+			if (other.mapped_)
+				throw std::exception("other.mapped_=true");
+		}
+
 		~item()
 		{
 			if (!mapped_) return;
@@ -115,18 +140,15 @@ private:
 			#endif
 		}
 
+		/* Создание элемента */
 		static iterator create(list &mru, const Key &key, const Value &value)
 		{
 		    /* Ищем ключ */
-		    map_iterator map_iter = mru.map_.find(key);
+		    map_t::iterator map_iter = mru.map_.find(key);
 
 			/* Если уже есть - удаляем */
 			if (map_iter != mru.map_.end())
 				mru.list_.erase(map_iter->second);
-
-			//std::cout << "before insert: list.size=" << mru.list_.size()
-			//	<< " map.size=" << mru.map_.size()
-			//	<< std::endl;
 
 	        /* Добавляем в list */
 			iterator list_iter = mru.list_.insert(
@@ -153,10 +175,6 @@ private:
 			if (mru.list_.size() > mru.max_items_)
 				mru.list_.pop_back();
 
-			//std::cout << "after insert: list.size=" << mru.list_.size()
-			//	<< " map.size=" << mru.map_.size()
-			//	<< std::endl;
-
     	    return list_iter;
 		}
 
@@ -178,6 +196,8 @@ private:
 
 	map_t map_;
 	list_t list_;
+	list_t tmp_list_; /* временный list для перемещений
+		- так работает гораздо быстрее */
 	size_t max_items_;
 
 public:
@@ -193,33 +213,37 @@ public:
     /* Поиск по ключу */
 	inline iterator find(Key const& key)
 	{
-		map_iterator map_iter = map_.find(key);
+		map_t::iterator map_iter = map_.find(key);
 		return (map_iter == map_.end() ? list_.end() : map_iter->second);
 	}
 
     /* Удаление по ключу */
 	void remove(Key const& key)
 	{
-		map_iterator map_iter = map_.find(key);
+		map_t::iterator map_iter = map_.find(key);
 		if (map_iter != map_.end())
 			list_.erase(map_iter->second);
 	}
 
+	/* Поднять наверх */
+	inline void up(iterator list_iter)
+	{
+		//list_t tmp_list;
+		tmp_list_.splice(tmp_list_.begin(), list_, list_iter);
+		list_.splice(list_.begin(), tmp_list_);
+        /*Т.к. сам объект в результате перемещений не удаляется,
+        	то и итератор на него в map не меняется */
+	}
+
 	iterator up(Key const& key)
 	{
-		map_iterator map_iter = map_.find(key);
+		map_t::iterator map_iter = map_.find(key);
 		if (map_iter == map_.end())
 			return list_.end();
 
 		iterator list_iter = map_iter->second;
 
-		/* Поднимаем наверх */
-		list_t tmp_list;
-		tmp_list.splice(tmp_list.begin(), list_, list_iter);
-		list_.splice(list_.begin(), tmp_list);
-
-        /* Надо что-то сделать с итератором в map'е */
-        map_iter->second = list_iter;
+		up(list_iter);
 
 		return list_iter;
 	}
@@ -234,7 +258,7 @@ public:
     */
 	Value& operator[](Key const& key)
 	{
-		map_iterator map_iter = map_.find(key);
+		map_t::iterator map_iter = map_.find(key);
 		iterator list_iter;
 
 		/* Т.к. обязательно нужно вернуть результат,
@@ -246,22 +270,99 @@ public:
 		else
 		{	
 			list_iter = map_iter->second;
-
-			/* Поднимаем наверх - медленная операция */
-			list_t tmp_list;
-			tmp_list.splice(tmp_list.begin(), list_, list_iter);
-			list_.splice(list_.begin(), tmp_list);
-			list_iter = list_.begin();
-
-	        /* Надо что-то сделать с итератором в map'е */
-			map_iter->second = list_iter;
+			up(list_iter);
 		}
 
 		return list_iter->value();
 	}
 
+	#if MRU_DEBUG
+	void test()
+	{
+		stringstream out;
+
+		/* Сверяем размеры list'а и map'а */
+		if (list_.size() != map_.size())
+			SS_EXCEPTION( out
+				<< "list.size(" << list_.size()
+				<< ") != map.size(" << map_.size() << ")");
+
+		/* Проверяем итераторы list'а, чтобы им всем было
+			соответствие в map */
+		for (iterator list_iter = list_.begin();
+			list_iter != list_.end(); list_iter++)
+		{
+			#if MRU_USE_MAP_ITER
+			map_t::iterator map_iter = list_iter->iter_;
+			if (map_iter == map_.end())
+				SS_EXCEPTION( out
+					<< "not found map_iter(" << "?" << ")");
+			#else
+			map_t::iterator map_iter = map_.find(list_iter->key_);
+			if (map_iter == map_.end())
+				SS_EXCEPTION( out
+					<< "not found map_iter("
+					<< list_iter->key_ << ")");
+			#endif
+
+			/* Сверяем итератор list'а с итератором,
+				хранящимся в map */
+			if (map_iter->second != list_iter)
+				SS_EXCEPTION( out
+					<< std::hex
+					<< "map_iter(" << map_iter->first
+						<< ")->list_iter(0x" << &*map_iter->second 
+					<< ") != list_iter(0x" << &*list_iter << ")");
+
+			/* Проверяем, что map_iter "живой" */
+			bool found = false;
+			for (map_t::iterator iter = map_.begin();
+				iter != map_.end(); iter++)
+			{
+				if (map_iter == iter)
+					found = true;
+			}
+
+			if (!found)
+				SS_EXCEPTION( out
+					<< "map_iter(" << map_iter->first
+						<< ") not found in map");
+		}
+
+		for (map_t::iterator map_iter = map_.begin();
+			map_iter != map_.end(); map_iter++)
+		{
+			bool found = false;
+
+			for (iterator iter = list_.begin();
+				iter != list_.end(); iter++)
+			{
+				if (map_iter->second == iter)
+					found = true;
+			}
+
+			if (!found)
+				SS_EXCEPTION( out
+					<< "list_iter(" << map_iter->first
+					<< ") not found in list");
+		}
+	}
+	#endif
+
 	inline void clear()
 		{ list_.clear(); }
+
+    inline list_t* operator ->()
+    	{ return &list_; }
+
+    inline const list_t& operator ->() const
+    	{ return list_; }
+
+    inline list_t& get()
+    	{ return list_; }
+
+    inline const list_t& get() const
+    	{ return list_; }
 
 	inline iterator begin()
 		{ return list_.begin(); }

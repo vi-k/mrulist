@@ -114,6 +114,9 @@ void after_test()
 
 int main(int argc, char *argv[])
 {
+	try
+	{
+
 	using namespace boost::posix_time;
 
 	int n = 1000;
@@ -268,6 +271,7 @@ int main(int argc, char *argv[])
 			for (int i = 0; i < SIZE; i++)
 			{
 				tiles4[ keys[i] ] = values[i];
+				//tiles4.test();
 			}
 			time += microsec_clock::local_time() - start;
 		}
@@ -450,6 +454,12 @@ int main(int argc, char *argv[])
 	after_test();
 
 	cout << "end" << endl;
+
+	}
+	catch(std::exception &e)
+	{
+		cout << "EXCEPTION: " << e.what() << endl;
+	}
 
 	return 0;
 }
