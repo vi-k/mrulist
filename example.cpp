@@ -6,14 +6,19 @@
 
 #include <iostream>
 #include <string>
+#include <exception>
 using namespace std;
 
 #define TEST_TYPE string
 #include "example.h"
 
 template<class List>
-void print_all(const List &list)
+void print_all(List &list)
 {
+	#if MRU_DEBUG
+	list.test();
+	#endif
+
 	cout << "list: ";
 
 	bool first = true;
@@ -28,6 +33,9 @@ void print_all(const List &list)
 		cout << iter->key() << "=" << iter->value();
 	}
 
+	if (first)
+		cout << "(empty)";
+
 	cout << endl << endl;
 }
 
@@ -35,6 +43,11 @@ template<class List, class Key, class Value>
 void insert(List &list, const Key &key, const Value &value)
 {
 	List::iterator iter = list.insert(key,value);
+	
+	#if MRU_DEBUG
+	list.test();
+	#endif
+
 	cout << "insert: " << iter->key() << "=" << iter->value() << endl;
 
 	print_all(list);
@@ -42,6 +55,8 @@ void insert(List &list, const Key &key, const Value &value)
 
 int main()
 {
+	try{
+
 	typedef mru::list<int,int> int_mru;
 	int_mru int_list(1000);
 	for (int i = 0; i < 11; i++)
@@ -63,13 +78,16 @@ int main()
 	insert( list, tile_id(1,1,1,1), test("1.2") );
 	insert( list, tile_id(1,1,1,1), test("1.3") );
 
-	cout << "find(" << tile_id(1,1,1,1) << ")";
-	tile_mru::iterator iter = list.find( tile_id(1,1,1,1) );
+	cout << "find(" << tile_id(4,4,4,4) << ")";
+	tile_mru::iterator iter = list.find( tile_id(4,4,4,4) );
 	if (iter == list.end())
 		cout << " - not found\n";
 	else
 		cout << " - found: " << iter->key() << "=" << iter->value().a << endl;
-	
+	print_all(list);
+
+	cout << "up_by_iterator(" << iter->key() << ")" << endl;
+	list.up(iter);
 	print_all(list);
 
 	cout << "find(" << tile_id(3,3,3,3) << ")";
@@ -100,11 +118,52 @@ int main()
 	list[ tile_id(1,1,1,1) ];
 	print_all(list);
 
+	cout << ".begin()=" << list.begin()->key() << endl;
+	cout << "->begin()=" << list->begin()->key() << endl;
+	cout << "->front()=" << list->front().key() << endl;
+	cout << "->back()=" << list->back().key() << endl;
+	print_all(list);
+	
+	cout << "->erase(->begin())" << endl;
+	list->erase(list->begin());
+	print_all(list);
+
+	cout << "->erase(++ ->begin())" << endl;
+	list->erase(++list->begin());
+	print_all(list);
+
+	/* А вот так нельзя  */
+	try
+	{
+		cout << "->push_back(*->begin())" << endl;
+		list->push_back(*list->begin());
+	}
+	catch(std::exception &e)
+	{
+		cout << "EXCEPTION: " << e.what() << endl << endl;
+	}
+
+
+	insert( list, tile_id(3,3,3,3), test("3.2") );
+	insert( list, tile_id(5,5,5,5), test("5.2") );
+
+	cout << "->splice(++ ->begin()) to ->end()" << endl;
+	tile_mru::list_t tmp_list;
+	tmp_list.splice(tmp_list.begin(), list.get(), ++list->begin());
+	list->splice(list->end(), tmp_list);
+	print_all(list);
+
 	cout << "clear()" << endl;
 	list.clear();
 	print_all(list);
 
 	cout << "end\n";
+
+	}
+	catch(std::exception &e)
+	{
+		cout << "EXCEPTION: " << e.what() << endl;
+	}
 
 	return 0;
 }
