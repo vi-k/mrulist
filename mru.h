@@ -213,9 +213,13 @@ public:
 
 		iterator list_iter = map_iter->second;
 
+		/* Поднимаем наверх */
 		list_t tmp_list;
 		tmp_list.splice(tmp_list.begin(), list_, list_iter);
 		list_.splice(list_.begin(), tmp_list);
+
+        /* Надо что-то сделать с итератором в map'е */
+        map_iter->second = list_iter;
 
 		return list_iter;
 	}
@@ -243,11 +247,14 @@ public:
 		{	
 			list_iter = map_iter->second;
 
-			/* Перемещаем наверх */
+			/* Поднимаем наверх - медленная операция */
 			list_t tmp_list;
 			tmp_list.splice(tmp_list.begin(), list_, list_iter);
 			list_.splice(list_.begin(), tmp_list);
 			list_iter = list_.begin();
+
+	        /* Надо что-то сделать с итератором в map'е */
+			map_iter->second = list_iter;
 		}
 
 		return list_iter->value();
