@@ -42,13 +42,17 @@ void print_all(List &list)
 template<class List, class Key, class Value>
 void insert(List &list, const Key &key, const Value &value)
 {
+	cout << "insert: " << key << "=" << value << endl;
+
+	list[key] = value;
+    
+    /*-
 	List::iterator iter = list.insert(key,value);
 	
 	#if MRU_DEBUG
 	list.test();
 	#endif
-
-	cout << "insert: " << iter->key() << "=" << iter->value() << endl;
+    -*/
 
 	print_all(list);
 }
@@ -59,9 +63,17 @@ int main()
 
 	typedef mru::list<int,int> int_mru;
 	int_mru int_list(1000);
+
+	int_list[0] = 0;
+	int_list[0] = 0;
+	int_list.remove(0);
+
 	for (int i = 0; i < 11; i++)
-		int_list.insert(i,i);
+		//int_list.insert(i,i);
+		int_list[i] = i;
 	int_list.clear();
+
+	//#if 0
 
 	typedef mru::list<tile_id, test> tile_mru;
 	
@@ -86,9 +98,11 @@ int main()
 		cout << " - found: " << iter->key() << "=" << iter->value().a << endl;
 	print_all(list);
 
+	/*-
 	cout << "up_by_iterator(" << iter->key() << ")" << endl;
 	list.up(iter);
 	print_all(list);
+    -*/
 
 	cout << "find(" << tile_id(3,3,3,3) << ")";
 	iter = list.find( tile_id(3,3,3,3) );
@@ -153,11 +167,17 @@ int main()
 	list->splice(list->end(), tmp_list);
 	print_all(list);
 
+	cout << "remove " << tile_id(3,3,3,3) << endl;
+	list.remove( tile_id(3,3,3,3) );
+	print_all(list);
+
 	cout << "clear()" << endl;
 	list.clear();
 	print_all(list);
 
 	cout << "end\n";
+
+	//#endif
 
 	}
 	catch(std::exception &e)
