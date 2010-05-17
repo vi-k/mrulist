@@ -2,14 +2,19 @@
 	Тест скорости
 	1) boost::unordered_map
 	2) std::map
-	3) std::list - для сравнения с mru (если TEST_STD_LIST==1)
+	3) std::list - для сравнения с mru (включить - TEST_STD_LIST)
 	4) mru_list из примера boost::multi_index -> serialization.cpp
 		(по умолчанию отключен, т.к. ОЧЕНЬ медленный - чтобы
-		включить, устновите TEST_MRU_LIST=1)
+		включить, установите TEST_MRU_LIST)
 	5) собственный mru::list (boost::unordered_map + std::list)
 	6) MruCache (http://www.codeproject.com/KB/stl/cpp_mru_cache.aspx)
-		- модифицированный для проверки (std::map + std::list)
+		- модифицированный для проверки (std::map + std::list).
+		В Debug-режиме не работает (включить - TEST_MRU_CACHE)
 */
+
+//#define TEST_MRU_LIST
+#define TEST_STD_LIST
+//#define TEST_MRU_CACHE
 
 #include "mru_list.h"
 #include "MruCache.h"
@@ -38,8 +43,6 @@ using namespace std;
 
 
 #define SIZE 1000
-#define TEST_MRU_LIST 0
-#define TEST_STD_LIST 1
 
 #define KEY_TYPE   1  /* 0 - int, 1 - tile_id          */
 #define VALUE_TYPE 1  /* 0 - int, 1 - shared_ptr<test> */
@@ -110,6 +113,7 @@ void after_test()
 	#endif
 
 	cout << endl;
+	cout.flush();
 }
 
 int main(int argc, char *argv[])
@@ -137,6 +141,9 @@ int main(int argc, char *argv[])
 
    	boost::unordered_map<Key,Value> tiles1;
 	{
+		cout << "boost::unordered_map: ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -149,8 +156,9 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "boost::unordered_map: "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 
 		int failed = 0;
 		for (int i = 0; i < SIZE; i++)
@@ -158,13 +166,18 @@ int main(int argc, char *argv[])
 			if (tiles1[ keys[i] ] != values[i])
 				failed++;
 		}
+		
 		cout << "  failed=" << failed;
+		cout.flush();
 	}
 
 	after_test();
 
    	map<Key,Value> tiles2;
 	{
+		cout << "std::map:             ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -177,8 +190,9 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "std::map:             "
-			<< to_simple_string(time);
+
+		cout << to_simple_string(time);
+		cout.flush();
 
 		int failed = 0;
 		for (int i = 0; i < SIZE; i++)
@@ -186,15 +200,20 @@ int main(int argc, char *argv[])
 			if (tiles2[ keys[i] ] != values[i])
 				failed++;
 		}
+
 		cout << "  failed=" << failed;
+		cout.flush();
 	}
 
 	after_test();
 
-#if TEST_MRU_LIST
+#ifdef TEST_MRU_LIST
 
    	mru_list<tile_id> tiles3(SIZE);
 	{
+		cout << "mru_list:             ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -207,18 +226,22 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "mru_list:             "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 	}
 
 	after_test();
 
 #endif
 
-#if TEST_STD_LIST
+#ifdef TEST_STD_LIST
 
    	list<Key> stdlist1;
 	{
+		cout << "std::list(key):       ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -231,14 +254,18 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "std::list(key):       "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 	}
 
 	after_test();
 
    	list<Value> stdlist2;
 	{
+		cout << "std::list(value):     ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -251,8 +278,9 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "std::list(value):     "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 	}
 
 	after_test();
@@ -262,6 +290,9 @@ int main(int argc, char *argv[])
 	typedef mru::list<Key,Value> tile_mru;
    	tile_mru tiles4(SIZE);
 	{
+		cout << "mru::list:            ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -275,8 +306,9 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "mru::list:            "
-			<< to_simple_string(time);
+
+		cout << to_simple_string(time);
+		cout.flush();
 
 		int failed = 0;
 		for (int i = 0; i < SIZE; i++)
@@ -284,13 +316,20 @@ int main(int argc, char *argv[])
 			if (tiles4[ keys[i] ] != values[i])
 				failed++;
 		}
+		
 		cout << "  failed=" << failed;
+		cout.flush();
 	}
 
 	after_test();
 
+#ifdef TEST_MRU_CACHE
+
 	MruCache<Key,Value> tiles5(SIZE);
 	{
+		cout << "MruCache:             ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -303,8 +342,9 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "MruCache:             "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 
 		int failed = 0;
 		for (int i = 0; i < SIZE; i++)
@@ -312,15 +352,21 @@ int main(int argc, char *argv[])
 			if (tiles5.FindItem(keys[i]) != values[i])
 				failed++;
 		}
+		
 		cout << "  failed=" << failed;
+		cout.flush();
 	}
 
 	after_test();
 
+#endif
 
 	cout << "\n*** access ***\n";
 
 	{
+		cout << "boost::unordered_map: ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -331,13 +377,17 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "boost::unordered_map: "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 	}
 
 	after_test();
 
 	{
+		cout << "std::map:             ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -348,15 +398,19 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "std::map:             "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 	}
 
 	after_test();
 
-#if TEST_STD_LIST
+#ifdef TEST_STD_LIST
 
 	{
+		cout << "std::list(key):       ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -367,8 +421,9 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "std::list(key):       "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 	}
 
 	after_test();
@@ -376,6 +431,9 @@ int main(int argc, char *argv[])
 #endif
 
 	{
+		cout << "mru::list:            ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -386,13 +444,17 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "mru::list:            "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 	}
 
 	after_test();
 
 	{
+		cout << "mru::list[]:          ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -403,13 +465,18 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "mru::list[]:          "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 	}
 
 	after_test();
 
+#ifdef TEST_MRU_CACHE
 	{
+		cout << "MruCache:             ";
+		cout.flush();
+
 		time_duration time;
 		for (int j = 0; j < n; j++)
 		{
@@ -420,23 +487,28 @@ int main(int argc, char *argv[])
 			}
 			time += microsec_clock::local_time() - start;
 		}
-		cout << "MruCache:             "
-			<< to_simple_string(time);
+		
+		cout << to_simple_string(time);
+		cout.flush();
 	}
 
 	after_test();
+
+#endif
 
 	cout << endl;
 
 	/* Удаление всех */
 	tiles1.clear();
 	tiles2.clear();
-	#if TEST_MRU_LIST
+	#ifdef TEST_MRU_LIST
 	tiles2.clear();
 	#endif
 	tiles4.clear();
+	#ifdef TEST_MRU_CACHE
 	tiles5.Clear();
-	#if TEST_STD_LIST
+	#endif
+	#ifdef TEST_STD_LIST
 	stdlist1.clear();
 	stdlist2.clear();
 	#endif
