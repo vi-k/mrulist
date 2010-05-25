@@ -23,7 +23,7 @@ void print_all(List &list)
 
 	bool first = true;
 
-	for(List::const_iterator iter = list.begin();
+	for(List::iterator iter = list.begin();
 		iter != list.end(); iter++)
 	{
 		if (first)
@@ -133,6 +133,8 @@ int main()
 	print_all(list);
 
 	cout << ".begin()=" << list.begin()->key() << endl;
+	
+    #if 0
 	cout << "->begin()=" << list->begin()->key() << endl;
 	cout << "->front()=" << list->front().key() << endl;
 	cout << "->back()=" << list->back().key() << endl;
@@ -170,6 +172,7 @@ int main()
 	cout << "remove " << tile_id(3,3,3,3) << endl;
 	list.remove( tile_id(3,3,3,3) );
 	print_all(list);
+	#endif
 
 	cout << "clear()" << endl;
 	list.clear();
