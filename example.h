@@ -71,6 +71,22 @@ public:
 
 		return seed;
 	}
+
+	friend struct ihash; /* Для std::unordered_map */
+
+};
+
+struct ihash : std::unary_function<tile_id, std::size_t>
+{
+	std::size_t operator()(const tile_id &t) const
+	{
+		std::size_t seed = 0;
+		boost::hash_combine(seed, t.map_id_);
+		boost::hash_combine(seed, t.z_);
+		boost::hash_combine(seed, t.x_);
+		boost::hash_combine(seed, t.y_);
+		return seed;
+   	}
 };
 
 #ifndef TEST_TYPE
