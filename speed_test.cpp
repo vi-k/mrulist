@@ -1,13 +1,14 @@
 ﻿/*
 	Тест скорости
 	1) boost::unordered_map
-	2) std::map
-	3) std::list - для сравнения с mru (включить - TEST_STD_LIST)
-	4) mru_list из примера boost::multi_index -> serialization.cpp
+	2) std::unordered_map
+	3) std::map
+	4) std::list - для сравнения с mru (включить - TEST_STD_LIST)
+	5) mru_list из примера boost::multi_index -> serialization.cpp
 		(по умолчанию отключен, т.к. ОЧЕНЬ медленный - чтобы
 		включить, установите TEST_MRU_LIST)
-	5) собственный mru::list (boost::unordered_map + std::list)
-	6) MruCache (http://www.codeproject.com/KB/stl/cpp_mru_cache.aspx)
+	6) собственный mru::list (boost::unordered_map + std::list)
+	7) MruCache (http://www.codeproject.com/KB/stl/cpp_mru_cache.aspx)
 		- модифицированный для проверки (std::map + std::list).
 		В Debug-режиме не работает (включить - TEST_MRU_CACHE)
 */
@@ -30,6 +31,7 @@
 #include <string>
 #include <iostream>
 #include <memory> /* auto_ptr */
+#include <unordered_map>
 using namespace std;
 
 #include <boost/unordered_map.hpp>
@@ -164,6 +166,40 @@ int main(int argc, char *argv[])
 		for (int i = 0; i < SIZE; i++)
 		{
 			if (tiles1[ keys[i] ] != values[i])
+				failed++;
+		}
+		
+		cout << "  failed=" << failed;
+		cout.flush();
+	}
+
+	after_test();
+
+   	unordered_map<Key,Value,ihash> tiles1_2;
+	{
+		cout << "std::unordered_map:   ";
+		cout.flush();
+
+		time_duration time;
+		for (int j = 0; j < n; j++)
+		{
+			tiles1_2.clear();
+
+			ptime start = microsec_clock::local_time();
+			for (int i = 0; i < SIZE; i++)
+			{
+				tiles1_2[ keys[i] ] = values[i];
+			}
+			time += microsec_clock::local_time() - start;
+		}
+		
+		cout << to_simple_string(time);
+		cout.flush();
+
+		int failed = 0;
+		for (int i = 0; i < SIZE; i++)
+		{
+			if (tiles1_2[ keys[i] ] != values[i])
 				failed++;
 		}
 		
@@ -385,6 +421,27 @@ int main(int argc, char *argv[])
 	after_test();
 
 	{
+		cout << "std::unordered_map:   ";
+		cout.flush();
+
+		time_duration time;
+		for (int j = 0; j < n; j++)
+		{
+			ptime start = microsec_clock::local_time();
+			for (int i = SIZE - 1; i >= 0; i--)
+			{
+				values[i] = tiles1_2.find(keys[i])->second;
+			}
+			time += microsec_clock::local_time() - start;
+		}
+		
+		cout << to_simple_string(time);
+		cout.flush();
+	}
+
+	after_test();
+
+	{
 		cout << "std::map:             ";
 		cout.flush();
 
@@ -500,6 +557,7 @@ int main(int argc, char *argv[])
 
 	/* Удаление всех */
 	tiles1.clear();
+	tiles1_2.clear();
 	tiles2.clear();
 	#ifdef TEST_MRU_LIST
 	tiles2.clear();
