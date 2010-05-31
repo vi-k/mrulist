@@ -57,24 +57,87 @@ void insert(List &list, const Key &key, const Value &value)
 	print_all(list);
 }
 
+template<class MruList>
+struct sorter_by_key
+{
+	bool operator()(const typename MruList::item_type &i1,
+		const typename MruList::item_type &i2)
+	{
+		return i1.key() < i2.key();
+	}
+};
+
+template<class MruList>
+struct remover_by_value
+{
+	typename MruList::value_type value;
+
+	remover_by_value(typename MruList::value_type value)
+		: value(value) {}
+
+	bool operator()(const typename MruList::item_type &i)
+	{
+		return i.value() == value;
+	}
+};
+
 int main()
 {
-	try{
+	srand(0);
+
+	try
+	{
+
+	cout << "\n********** mru::list<int, int>(1000) **********\n";
 
 	typedef mru::list<int,int> int_mru;
+
 	int_mru int_list(1000);
+	int_mru::iterator it;
 
-	int_list[0] = 0;
-	int_list[0] = 0;
-	int_list.remove(0);
-
+	cout << ".insert( 0 .. 10 )\n";
 	for (int i = 0; i < 11; i++)
-		//int_list.insert(i,i);
-		int_list[i] = i;
+		int_list.insert(i,rand()%100);
+	print_all(int_list);
+
+	cout << ".sort( by value )\n";
+	int_list.sort();
+	print_all(int_list);
+
+	cout << ".move( {1} to begin() )\n";
+	int_list.move(int_list.begin(), 1);
+	print_all(int_list);
+
+	cout << ".find(1)->value() = 0" << endl;
+	int_list.find(1)->value() = 0;
+	print_all(int_list);
+
+	cout << ".[7] = 0" << endl;
+	int_list[7] = 0;
+	print_all(int_list);
+
+	cout << ".sort( by key )\n";
+	int_list.sort(sorter_by_key<int_mru>());
+	print_all(int_list);
+
+	cout << ".erase( begin() )" << endl;
+	int_list.erase( int_list.begin() );
+	print_all(int_list);
+
+	cout << ".remove(5)" << endl;
+	int_list.remove(5);
+	print_all(int_list);
+
+	cout << ".remove_if( value == 0 )" << endl;
+	int_list.remove_if( remover_by_value<int_mru>(0) );
+	print_all(int_list);
+
+	cout << ".clear()" << endl;
 	int_list.clear();
+	print_all(int_list);
 
-	//#if 0
 
+	cout << "\n********** mru::list<tile_id, test>(4) **********\n";
 	typedef mru::list<tile_id, test> tile_mru;
 	
 	tile_mru list(4);
@@ -90,6 +153,9 @@ int main()
 	insert( list, tile_id(1,1,1,1), test("1.2") );
 	insert( list, tile_id(1,1,1,1), test("1.3") );
 
+	cout<< "!!!\n";
+	cout.flush();
+
 	cout << "find(" << tile_id(4,4,4,4) << ")";
 	tile_mru::iterator iter = list.find( tile_id(4,4,4,4) );
 	if (iter == list.end())
@@ -97,12 +163,6 @@ int main()
 	else
 		cout << " - found: " << iter->key() << "=" << iter->value().a << endl;
 	print_all(list);
-
-	/*-
-	cout << "up_by_iterator(" << iter->key() << ")" << endl;
-	list.up(iter);
-	print_all(list);
-    -*/
 
 	cout << "find(" << tile_id(3,3,3,3) << ")";
 	iter = list.find( tile_id(3,3,3,3) );
@@ -132,55 +192,35 @@ int main()
 	list[ tile_id(1,1,1,1) ];
 	print_all(list);
 
-	cout << ".begin()=" << list.begin()->key() << endl;
-	
-    #if 0
-	cout << "->begin()=" << list->begin()->key() << endl;
-	cout << "->front()=" << list->front().key() << endl;
-	cout << "->back()=" << list->back().key() << endl;
+	cout << ".begin()=" << *list.begin() << endl;
+	cout << ".front()=" << list.front() << endl;
+	cout << ".back()=" << list.back() << endl;
 	print_all(list);
 	
-	cout << "->erase(->begin())" << endl;
-	list->erase(list->begin());
+	cout << ".erase(.begin())" << endl;
+	list.erase(list.begin());
 	print_all(list);
 
-	cout << "->erase(++ ->begin())" << endl;
-	list->erase(++list->begin());
+	cout << ".erase(++ .begin())" << endl;
+	list.erase(++list.begin());
 	print_all(list);
-
-	/* А вот так нельзя  */
-	try
-	{
-		cout << "->push_back(*->begin())" << endl;
-		list->push_back(*list->begin());
-	}
-	catch(std::exception &e)
-	{
-		cout << "EXCEPTION: " << e.what() << endl << endl;
-	}
-
 
 	insert( list, tile_id(3,3,3,3), test("3.2") );
 	insert( list, tile_id(5,5,5,5), test("5.2") );
 
-	cout << "->splice(++ ->begin()) to ->end()" << endl;
-	tile_mru::list_t tmp_list;
-	tmp_list.splice(tmp_list.begin(), list.get(), ++list->begin());
-	list->splice(list->end(), tmp_list);
+	cout << ".move( ++begin() to end() )" << endl;
+	list.move( list.end(), (++list.begin())->key());
 	print_all(list);
 
-	cout << "remove " << tile_id(3,3,3,3) << endl;
-	list.remove( tile_id(3,3,3,3) );
+	cout << ".sort( by key )\n";
+	list.sort(sorter_by_key<tile_mru>());
 	print_all(list);
-	#endif
 
 	cout << "clear()" << endl;
 	list.clear();
 	print_all(list);
 
 	cout << "end\n";
-
-	//#endif
 
 	}
 	catch(std::exception &e)

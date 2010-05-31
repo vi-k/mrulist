@@ -129,7 +129,7 @@ public:
 
 	friend std::ostream& operator <<(std::ostream& out, const test &t)
 	{
-		out	<< "{" << t.a << "}";
+		out	<< t.a;
 		return out;
 	}
 };
