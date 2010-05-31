@@ -13,9 +13,9 @@
 		использования.
 
 	Суть:
-		Map строится по ключу (key) и хранит итераторы list'а (надеюсь,
-		на свой страх и риск, что они не меняются в результате
-		добавления/удаления элементов) и больше ничего.
+		Map строится по ключу (key) и хранит итераторы list'а (в теории,
+		они не меняются в результате добавления/удаления элементов)
+		и больше ничего.
 
 		Элементы list'а хранят указатели на mru::list (об этом далее),
 		ключи (key) и значения (value).
@@ -38,11 +38,11 @@
 #if MRU_DEBUG
 #include <sstream>
 #include <iostream>
+#include <exception>
 #define SS_EXCEPTION(s) throw std::exception(((stringstream*)&(s))->str().c_str())
 #endif
 
-#include <exception>
-
+#include <ostream>
 #include <list>
 #include <boost/unordered_map.hpp>
 
@@ -52,29 +52,33 @@ template <typename Key, typename Value>
 class list
 {
 private:
-    class item;
-	typedef std::list<item> list_t;
+	class item;
+	
 public:
-	typedef typename list_t::iterator iterator;
-	typedef typename list_t::reverse_iterator reverse_iterator;
+	typedef typename item item_type;
+	typedef typename Key key_type;
+	typedef typename Value value_type;
+	typedef std::list<item> list_type;
+	typedef typename list_type::iterator iterator;
+	typedef typename list_type::const_iterator const_iterator;
+	typedef typename list_type::reverse_iterator reverse_iterator;
+	typedef typename list_type::const_reverse_iterator const_reverse_iterator;
 private:
-	typedef boost::unordered_map<Key, typename list_t::iterator> map_t;
-	typedef typename map_t::iterator map_iterator;
+	typedef boost::unordered_map<key_type, /*typename list_type::*/iterator> map_type;
+	typedef typename map_type::iterator map_iterator;
 
 private:
 
 	class item
 	{
-	#if MRU_DEBUG
 	friend class list;
-	#endif
 	private:
 		list &mru_;
-		Key key_;
-		Value value_;
+		key_type key_;
+		value_type value_;
 		bool mapped_;
 
-		item(list &mru, const Key &key, const Value &value)
+		item(list &mru, const key_type &key, const value_type &value)
 			: mru_(mru)
 			, key_(key)
 			, value_(value)
@@ -87,8 +91,7 @@ private:
 			, value_(other.value_)
 			, mapped_(false)
 		{
-			if (other.mapped_)
-				throw std::exception("other.mapped_=true");
+			assert( !other.mapped_ );
 		}
 
 		~item()
@@ -97,207 +100,238 @@ private:
 				mru_.map_.erase(key_);
 		}
 
-		/* Создание элемента */
-		static iterator create(list &mru, const Key &key, const Value &value)
+		template<class Char>
+		friend std::basic_ostream<Char>& operator <<(
+			std::basic_ostream<Char>& out, item &i)
 		{
-		    /* Ищем ключ */
-		    map_t::iterator map_iter = mru.map_.find(key);
-
-			/* Если уже есть - удаляем */
-			if (map_iter != mru.map_.end())
-				mru.list_.erase(map_iter->second);
-
-	        /* Добавляем в list */
-			iterator list_iter = mru.list_.insert(
-				mru.list_.begin(), item(mru, key, value) );
-
-	        /* Добавляем в map */
-			std::pair<map_t::iterator, bool> p
-				= mru.map_.insert(map_t::value_type(key, list_iter));
-
-    	    list_iter->mapped_ = true;
-
-			/* Удаляем лишние */
-			if (mru.list_.size() > mru.max_items_)
-				mru.list_.pop_back();
-
-    	    return list_iter;
+			out	<< "{" << i.key() << "=" << i.value() << "}";
+			return out;
 		}
 
-		inline const Key& key() const
+		inline const key_type& key() const
 			{ return key_; }
 
-		inline Value& value()
+		inline value_type& value()
 			{ return value_; }
+
+		inline const value_type& value() const
+			{ return value_; }
+
+		inline bool operator <(const item &item) const
+		{
+			return value_ < item.value_;
+		}
 	};
 
-	map_t map_;
-	list_t list_;
-	list_t tmp_list_; /* временный list для перемещений
+	map_type map_;
+	list_type list_;
+	list_type tmp_list_; /* временный list для перемещений
 		- так работает гораздо быстрее */
 	size_t max_items_;
 
-	inline void up__(iterator *p_list_iter)
+	inline void move__(iterator where, iterator *p_list_iter)
 	{
-		tmp_list_.splice(tmp_list_.begin(), list_, *p_list_iter);
-		list_.splice(list_.begin(), tmp_list_);
-		*p_list_iter = list_.begin();
+		if (where != *p_list_iter)
+		{
+			tmp_list_.splice(tmp_list_.begin(), list_, *p_list_iter);
+			list_.splice(where, tmp_list_);
+
+			/* После splice все ранее определённые итераторы 
+				и ссылки на элементы становятся invalid'ными 
+				(Only iterators or references that designate
+				spliced elements become invalid) */
+			*p_list_iter = --where;
+		}
 	}
+
 
 public:
 	list(size_t max_items)
 		: max_items_(max_items) {}
 
-    /* Добавление нового элемента - всегда наверх */
-	inline iterator insert(Key const& key, Value const& value)
+	/* Добавление нового элемента - всегда наверх */
+	iterator insert(key_type const& key, value_type const& value)
 	{
-		return item::create(*this, key, value);
+		/* Ищем ключ */
+		map_iterator map_iter = map_.find(key);
+
+		/* Если уже есть - удаляем */
+		if (map_iter != map_.end())
+			list_.erase(map_iter->second);
+
+		/* Добавляем в list */
+		iterator list_iter = list_.insert( list_.begin(),
+			item(*this, key, value) );
+
+		/* Добавляем в map */
+		std::pair<map_iterator, bool> p
+			= map_.insert(map_type::value_type(key, list_iter));
+
+		list_iter->mapped_ = true;
+
+		/* Удаляем лишние */
+		while (list_.size() > max_items_)
+			list_.pop_back();
+
+		return list_iter;
 	}
 
-    /* Поиск по ключу */
-	inline iterator find(Key const& key)
+	/* Поиск по ключу */
+	inline iterator find(key_type const& key)
 	{
-		map_t::iterator map_iter = map_.find(key);
+		map_iterator map_iter = map_.find(key);
 		return (map_iter == map_.end() ? list_.end() : map_iter->second);
 	}
 
-    /* Удаление по ключу */
-	void remove(Key const& key)
+	/* Удаление по ключу */
+	void remove(key_type const& key)
 	{
-		map_t::iterator map_iter = map_.find(key);
+		map_iterator map_iter = map_.find(key);
 		if (map_iter != map_.end())
 			list_.erase(map_iter->second);
 	}
 
 	/* Поднять наверх */
-	iterator up(Key const& key)
+	iterator up(key_type const& key)
 	{
-		map_t::iterator map_iter = map_.find(key);
+		map_iterator map_iter = map_.find(key);
 		if (map_iter == map_.end())
 			return list_.end();
 
-		up__(&map_iter->second);
+		move__(list_.begin(), &map_iter->second);
 
 		return map_iter->second;
 	}
 
-    /*
-    	Доступ по ключу.
-    	
-    	Если ключ отсутствует, он будет создан - у класса Value
-    	должен быть определён конструктор по умолчанию.
-
-		//Если ключ уже есть, он будет поднят наверх.
-    */
-	Value& operator[](Key const& key)
+    /* Передвинуть в любое место */
+	iterator move(iterator where, key_type const& key)
 	{
-		map_t::iterator map_iter = map_.find(key);
+		map_iterator map_iter = map_.find(key);
+		if (map_iter == map_.end())
+			return list_.end();
+
+		move__(where, &map_iter->second);
+
+		return map_iter->second;
+	}
+
+	/* Доступ по ключу */
+	value_type& operator[](key_type const& key)
+	{
+		map_iterator map_iter = map_.find(key);
 		iterator list_iter;
 
-		/* Т.к. обязательно нужно вернуть результат,
-			то, если значение ещё не существует, добавляем его.
-			Для этого для Value должен быть определён конструктор
-			по умолчанию! */
+        /*
+			Если ключ отсутствует, он будет создан - у класса Value
+			должен быть определён конструктор по умолчанию.
+			Если ключ уже есть, он будет поднят наверх.
+		*/
 		if (map_iter == map_.end())
-			list_iter = item::create(*this, key, Value());
+			list_iter = insert(key, value_type());
 		else
-		//{
-			//up__(&map_iter->second);
+		{
+			move__(list_.begin(), &map_iter->second);
 			list_iter = map_iter->second;
-		//}
+		}
 
 		return list_iter->value();
 	}
 
-	#if MRU_DEBUG
-	void test()
+	/* Восстановление итераторов, хранящихся в map'е, после операций
+		с list'ом, их нарушающих (->splice) */
+	void remap()
 	{
-		stringstream out;
-
-		/* Сверяем размеры list'а и map'а */
-		if (list_.size() != map_.size())
-			SS_EXCEPTION( out
-				<< "list.size(" << list_.size()
-				<< ") != map.size(" << map_.size() << ")");
-
-		/* Проверяем итераторы list'а, чтобы им всем было
-			соответствие в map */
-		for (iterator list_iter = list_.begin();
-			list_iter != list_.end(); list_iter++)
+		for (iterator iter = list_.begin();
+			iter != list_.end(); iter++)
 		{
-			map_t::iterator map_iter = map_.find(list_iter->key_);
-			if (map_iter == map_.end())
-				SS_EXCEPTION( out
-					<< "not found map_iter("
-					<< list_iter->key_ << ")");
-
-			/* Сверяем итератор list'а с итератором,
-				хранящимся в map */
-			if (map_iter->second != list_iter)
-				SS_EXCEPTION( out
-					<< std::hex
-					<< "map_iter(" << map_iter->first
-						<< ")->list_iter(0x" << &*map_iter->second 
-					<< ") != list_iter(0x" << &*list_iter << ")");
-
-			/* Проверяем, что map_iter "живой" */
-			bool found = false;
-			for (map_t::iterator iter = map_.begin();
-				iter != map_.end(); iter++)
-			{
-				if (map_iter == iter)
-					found = true;
-			}
-
-			if (!found)
-				SS_EXCEPTION( out
-					<< "map_iter(" << map_iter->first
-						<< ") not found in map");
-		}
-
-		for (map_t::iterator map_iter = map_.begin();
-			map_iter != map_.end(); map_iter++)
-		{
-			bool found = false;
-
-			for (iterator iter = list_.begin();
-				iter != list_.end(); iter++)
-			{
-				if (map_iter->second == iter)
-					found = true;
-			}
-
-			if (!found)
-				SS_EXCEPTION( out
-					<< "list_iter(" << map_iter->first
-					<< ") not found in list");
+			map_.find(iter->key())->second = iter;
 		}
 	}
-	#endif
+
+	inline void sort()
+		{ list_.sort(); }
+
+	template<class Pr>
+	inline void sort(Pr pred)
+		{ list_.sort(pred); }
+
+	template<class Pr>
+	inline void remove_if(Pr pred)
+		{ list_.remove_if(pred); }
+
+
+	inline iterator erase(iterator list_iter)
+		{ return list_.erase(list_iter); }
+
+	inline iterator erase(iterator first, iterator last)
+		{ list_.erase(first, last); }
+
 
 	inline void clear()
 		{ list_.clear(); }
 
+	
 	inline iterator begin()
 		{ return list_.begin(); }
+
+	inline const_iterator begin() const
+		{ return list_.begin(); }
+	
+	inline const_iterator cbegin() const
+		{ return list_.cbegin(); }
+
 
 	inline iterator end()
 		{ return list_.end(); }
 	
+	inline const_iterator end() const
+		{ return list_.end(); }
+
+	inline const_iterator cend() const
+		{ return list_.cend(); }
+
+
 	inline reverse_iterator rbegin()
 		{ return list_.rbegin(); }
 
+	inline const_reverse_iterator rbegin() const
+		{ return list_.rbegin(); }
+
+	inline const_reverse_iterator crbegin() const
+		{ return list_.crbegin(); }
+
+	
 	inline reverse_iterator rend()
 		{ return list_.rend(); }
 
-    /*-
-    inline list_t* operator ->()
-    	{ return &list_; }
+	inline const_reverse_iterator rend() const
+		{ return list_.rend(); }
 
-    inline list_t& get()
-    	{ return list_; }
+	inline const_reverse_iterator crend() const
+		{ return list_.crend(); }
+
+
+	inline item& front()
+		{ return list_.front(); }
+
+	inline const item& front() const
+		{ return list_.front(); }
+
+
+	inline item& back()
+		{ return list_.back(); }
+
+	inline const item& back() const
+		{ return list_.back(); }
+
+
+	/*-
+	inline list_type* operator ->()
+		{ return &list_; }
+
+	inline list_type& get()
+		{ return list_; }
     -*/
-
 };
 
 }
