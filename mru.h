@@ -325,6 +325,12 @@ public:
 		{ return list_.back(); }
 
 
+	inline list_type::size_type size()
+		{ return list_.size(); }
+
+	inline bool empty()
+		{ return list_.empty(); }
+
 	/*-
 	inline list_type* operator ->()
 		{ return &list_; }
