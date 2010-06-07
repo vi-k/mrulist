@@ -64,7 +64,7 @@ public:
 	typedef typename list_type::reverse_iterator reverse_iterator;
 	typedef typename list_type::const_reverse_iterator const_reverse_iterator;
 private:
-	typedef boost::unordered_map<key_type, /*typename list_type::*/iterator> map_type;
+	typedef boost::unordered_map<key_type, iterator> map_type;
 	typedef typename map_type::iterator map_iterator;
 
 private:
@@ -222,23 +222,23 @@ public:
 		iterator list_iter;
 
         /*
-			Если ключ отсутствует, он будет создан - у класса Value
-			должен быть определён конструктор по умолчанию.
-			Если ключ уже есть, он будет поднят наверх.
+			Если ключ отсутствует, элемент будет создан - у класса
+			Value должен быть определён конструктор по умолчанию.
 		*/
 		if (map_iter == map_.end())
 			list_iter = insert(key, value_type());
 		else
-		{
-			move__(list_.begin(), &map_iter->second);
+			/* Неявное поднятие элемента наверх упраздняем,
+				т.к. если вызывающей программой был сохранён
+				итератор на этот элемент, он станет invalid */
 			list_iter = map_iter->second;
-		}
 
 		return list_iter->value();
 	}
 
 	/* Восстановление итераторов, хранящихся в map'е, после операций
 		с list'ом, их нарушающих (->splice) */
+    /*- Убираю на ненадобностью
 	void remap()
 	{
 		for (iterator iter = list_.begin();
@@ -247,6 +247,7 @@ public:
 			map_.find(iter->key())->second = iter;
 		}
 	}
+    -*/
 
 	inline void sort()
 		{ list_.sort(); }
@@ -331,7 +332,7 @@ public:
 	inline bool empty()
 		{ return list_.empty(); }
 
-	/*-
+	/*- Прямой доступ к списку - убираем
 	inline list_type* operator ->()
 		{ return &list_; }
 
