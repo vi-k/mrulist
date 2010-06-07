@@ -238,7 +238,7 @@ public:
 
 	/* Восстановление итераторов, хранящихся в map'е, после операций
 		с list'ом, их нарушающих (->splice) */
-    /*- Убираю на ненадобностью
+	/*- Убираю за ненадобностью
 	void remap()
 	{
 		for (iterator iter = list_.begin();
@@ -247,7 +247,7 @@ public:
 			map_.find(iter->key())->second = iter;
 		}
 	}
-    -*/
+	-*/
 
 	inline void sort()
 		{ list_.sort(); }
@@ -338,7 +338,7 @@ public:
 
 	inline list_type& get()
 		{ return list_; }
-    -*/
+	-*/
 };
 
 }
