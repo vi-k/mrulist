@@ -203,7 +203,7 @@ public:
 		return map_iter->second;
 	}
 
-    /* Передвинуть в любое место */
+	/* Передвинуть в любое место */
 	iterator move(iterator where, key_type const& key)
 	{
 		map_iterator map_iter = map_.find(key);
@@ -221,7 +221,7 @@ public:
 		map_iterator map_iter = map_.find(key);
 		iterator list_iter;
 
-        /*
+		/*
 			Если ключ отсутствует, элемент будет создан - у класса
 			Value должен быть определён конструктор по умолчанию.
 		*/
