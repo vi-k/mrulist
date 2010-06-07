@@ -5,7 +5,8 @@
 
 class tile_id
 {
-private:
+//private:
+public:
 	int map_id_;
 	int z_;
 	int x_;
@@ -61,7 +62,8 @@ public:
 		return out;
 	}
 
-	friend std::size_t hash_value(const tile_id &t)
+	//friend std::size_t boost::hash_value(const tile_id &t);
+    /*-
 	{
 		std::size_t seed = 0;
 		boost::hash_combine(seed, t.map_id_);
@@ -71,10 +73,24 @@ public:
 
 		return seed;
 	}
+    -*/
 
 	friend struct ihash; /* Для std::unordered_map */
 
 };
+
+namespace boost {
+std::size_t hash_value(const tile_id &t)
+{
+	std::size_t seed = 0;
+	boost::hash_combine(seed, t.map_id_);
+	boost::hash_combine(seed, t.z_);
+	boost::hash_combine(seed, t.x_);
+	boost::hash_combine(seed, t.y_);
+
+	return seed;
+}
+}
 
 struct ihash : std::unary_function<tile_id, std::size_t>
 {
